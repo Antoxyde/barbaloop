@@ -14,20 +14,25 @@ typedef struct actualizer_args_ {
 } actualizer_args;
 
 void actualize_time(char* value) {
-    time_t rawtime;
+    time_t rawtime = time(NULL);
+
     struct tm *info;
     info = localtime(&rawtime);
-    strftime(value, 80, "%a %x - %X", rawtime);
+    strftime(value, 80, "%a %x - %X", info);
 }
 
+/*
 void actualize_ram(char* value) {
     struct rusage usage;
     int err;
 
     err = getrusage(&usage);
 }
+*/
 
-void thread_main(actualizer_args* args) {
+void *thread_main(void* args_void) {
+
+    actualizer_args* args = (actualizer_args*) args_void;
 
     while (1) {
 
@@ -49,7 +54,7 @@ int main() {
     pthread_t time_thread;
     int err;
 
-    err = pthread_create(&time_thread, NULL, thread_main, &time_args);
+    err = pthread_create(&time_thread, NULL, thread_main, (void*)(&time_args));
 
     while (1) {
 
