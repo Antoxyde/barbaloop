@@ -1,33 +1,92 @@
-#include <pthread.h>
 #include <stdio.h>
 #include <time.h>
 #include <unistd.h>
 #include <sys/resource.h>
 #include <stdlib.h>
 #include <string.h>
-
-#define VALUE_MAXSIZE 80
-#define PATH_BATT_FULL "/sys/class/power_supply/BAT1/energy_full"
-#define PATH_BATT_NOW "/sys/class/power_supply/BAT1/energy_now"
-#define PATH_BATT_STATUS "/sys/class/power_supply/BAT1/energy_now"
+#include <X11/Xlib.h>
+#include <signal.h>
 
 typedef void (*actualizer)(char*);
 
-typedef struct actualizer_args_ {
-    actualizer func;
-    pthread_mutex_t* lock;
-    size_t sleeptime;
-    char* value;
-} actualizer_args;
+void actualize_battery(char*);
+void actualize_time(char*);
 
+typedef struct actualizer_ {
+    actualizer func;
+    int sleeptime;
+    int signal;
+    int iscmd;
+    char* cmd;
+} actualizer_t;
+
+#include "config.h"
+
+#define STATUS_MAXLEN 80
+#define LENGTH(X) (sizeof(X) / sizeof (X[0]))
+#define BAR_MAXLEN (STATUS_MAXLEN + 4) * LENGTH(actualizers)
+
+static char status[LENGTH(actualizers)][STATUS_MAXLEN] = {0};
+static char bar[BAR_MAXLEN];
+static char oldbar[BAR_MAXLEN];
+static int continue_looping = 1;
+
+void update_status() {
+
+    int i;
+    strncpy(oldbar, bar, BAR_MAXLEN);
+    memset(bar, 0, BAR_MAXLEN);
+
+    for (i = 0; i < LENGTH(actualizers) - 1; i++) {
+        strncat(bar, CONF_DELIMITER_BEFORE, 2);
+        strncat(bar, status[i], STATUS_MAXLEN + 1);
+        strncat(bar, CONF_DELIMITER_AFTER, 2);
+        strncat(bar, CONF_DELIMITER, 2);
+
+    }
+
+    strncat(bar, CONF_DELIMITER_BEFORE, 2);
+    strncat(bar, status[i], STATUS_MAXLEN);
+    strncat(bar, CONF_DELIMITER_AFTER, 2);
+
+    if (strncmp(oldbar, bar, BAR_MAXLEN)) {
+        Display *dpy = XOpenDisplay(NULL);
+
+        if (!dpy) {
+            fprintf(stderr, "Fatal: could not open X display.\n");
+            exit(1);
+        }
+
+        int screen = DefaultScreen(dpy);
+        Window root = RootWindow(dpy, screen);
+        XStoreName(dpy, root, bar);
+        XCloseDisplay(dpy);
+    }
+}
+
+void cleanup(char* value) {
+
+    char* dst = value;
+    char* src = value;
+
+    while (*src) {
+
+        if (*src < 0x20 || *src > 0x7f) {
+            src++;
+            *dst = *src;
+        }
+
+        dst++;
+        src++;
+    }
+}
 
 void actualize_time(char* value) {
 
     time_t rawtime = time(NULL);
-
     struct tm *info;
     info = localtime(&rawtime);
-    strftime(value, VALUE_MAXSIZE, "%a %x - %X", info);
+    strftime(value, STATUS_MAXLEN, CONF_TIME_FORMAT, info);
 
 }
 
@@ -42,94 +101,118 @@ void actualize_ram(char* value) {
 
 void actualize_battery(char* value) {
 
-    char* path_full = "/sys/class/power_supply/BAT1/energy_full";
-    char* path_now = "/sys/class/power_supply/BAT1/energy_now";
     FILE* fd_full = NULL;
     FILE* fd_now = NULL;
 
-    if ((fd_now = fopen(PATH_BATT_NOW, "r")) == NULL || (fd_full = fopen(PATH_BATT_FULL, "r")) == NULL) {
-        fprintf(stderr, "Can't open /sys/class");
-        exit(1);
+    if ((fd_now = fopen(CONF_BATTERY_PATH"/energy_now", "r")) == NULL || (fd_full = fopen(CONF_BATTERY_PATH"/energy_full", "r")) == NULL) {
+        strcpy(value, "Can't open /sys/class");
+    } else {
+
+        double value_now, value_full;
+        fscanf(fd_now, "%lf", &value_now);
+        fscanf(fd_full, "%lf", &value_full);
+
+        snprintf(value, STATUS_MAXLEN, CONF_BATTERY_FORMAT, (value_now / value_full) * 100.0 );
     }
 
-    double value_now, value_full;
-    fscanf(fd_now, "%lf", &value_now);
-    fscanf(fd_full, "%lf", &value_full);
+    if (fd_now)
+        fclose(fd_now);
 
-    snprintf(value, VALUE_MAXSIZE, "%lf%%", (value_now / value_full) * 100.0 );
-
-    fclose(fd_now);
-    fclose(fd_full);
+    if (fd_full)
+        fclose(fd_full);
 }
 
 
-void *thread_main(void* args_void) {
+void exec_cmd(char* cmd, char* value) {
 
-    actualizer_args* args = (actualizer_args*) args_void;
+    FILE *file_cmd = popen(cmd,"r");
+    if (!file_cmd)
+        return;
 
-    while (1) {
+    fgets(value, STATUS_MAXLEN, file_cmd);
+    value[STATUS_MAXLEN - 1] = '\0';
 
-        pthread_mutex_lock(args->lock);
-        args->func(args->value);
-        pthread_mutex_unlock(args->lock);
+    cleanup(value);
 
-        sleep(args->sleeptime);
-    }
-
+    pclose(file_cmd);
 }
 
-actualizer_args* create_args(size_t sleeptime, actualizer func) {
+void run_loop() {
 
-    pthread_mutex_t* lock = malloc(sizeof(pthread_mutex_t));
-    pthread_mutex_init(lock, NULL);
+    int i, time = 0, atleast_one = 0;
 
-    actualizer_args* args = (actualizer_args*)malloc(sizeof(actualizer_args));
-    args->sleeptime = sleeptime;
-    args->func = func;
-    args->value = calloc(1, VALUE_MAXSIZE);
-    args->lock = lock;
+    // Run every actualizer a first time
+    for  (i = 0; i < LENGTH(actualizers); i++) {
+        if (actualizers[i].iscmd)
+            exec_cmd(actualizers[i].cmd, status[i]);
+        else
+            actualizers[i].func(status[i]);
+    }
+    update_status();
 
-    return args;
+
+    while (continue_looping) {
+
+        atleast_one = 0;
+
+        for  (i = 0; i < LENGTH(actualizers); i++) {
+            if (actualizers[i].sleeptime && time % actualizers[i].sleeptime == 0) {
+
+                if (actualizers[i].iscmd)
+                    exec_cmd(actualizers[i].cmd, status[i]);
+                else
+                    actualizers[i].func(status[i]);
+
+                atleast_one = 1;
+            }
+        }
+
+        if (atleast_one)
+            update_status();
+
+        sleep(1);
+        time++;
+    }
 }
 
-void destroy_args(actualizer_args* args) {
-    if (args) {
+void sig_handler(int signum) {
 
-        if (args->lock)
-            free(args->lock);
+    int atleast_one = 0;
 
-        if (args->value)
-            free(args->value);
-
-        free(args);
+    for (int i = 0; i < LENGTH(actualizers); i++) {
+        if (actualizers[i].signal == signum || signum == CONF_CATCHALL_SIGNUM) {
+            atleast_one = 1;
+            if (actualizers[i].iscmd) {
+                exec_cmd(actualizers[i].cmd, status[i]);
+            } else {
+                actualizers[i].func(status[i]);
+            }
+        }
     }
+
+    if (atleast_one)
+        update_status();
+}
+
+void sigterm_handler(int signum) {
+    printf("Caught sigterm/sigint, leaving.\n");
+    continue_looping = 0;
+    exit(0);
 }
 
 int main() {
 
-    int err;
+    // setup signals
+    for (int i = 0; i < LENGTH(actualizers); i++)
+        signal(actualizers[i].signal, sig_handler);
 
-    pthread_t time_thread, battery_thread;
+    signal(CONF_CATCHALL_SIGNUM, sig_handler);
 
-    actualizer_args* time_args = create_args(1, &actualize_time);
-    actualizer_args* battery_args = create_args(5, &actualize_battery);
 
-    err = pthread_create(&time_thread, NULL, thread_main, (void*)(time_args));
-    err = pthread_create(&battery_thread, NULL, thread_main, (void*)(battery_args));
+    signal(SIGTERM, sigterm_handler);
+	signal(SIGINT, sigterm_handler);
 
-    while (1) {
-
-        sleep(1);
-        pthread_mutex_lock(time_args->lock);
-        pthread_mutex_lock(battery_args->lock);
-        printf("Time: %s, Battery: %s\n", time_args->value, battery_args->value);
-        pthread_mutex_unlock(time_args->lock);
-        pthread_mutex_unlock(battery_args->lock);
-
-    }
-
-    destroy_args(time_args);
-    destroy_args(battery_args);
+    run_loop();
 
     return 0;
 }

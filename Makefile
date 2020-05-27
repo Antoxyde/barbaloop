@@ -1,7 +1,9 @@
-CC=cc
+CC=gcc
+CFLAGS=-Wall -Werror `pkg-config --cflags x11`
+LDFLAGS=`pkg-config --libs x11`
 
-all:
-	$(CC) -o barbaloop barbaloop.c -lpthread
+all: barbaloop.c config.h
+	$(CC) $(CFLAGS) $(LDFLAGS) -o barbaloop barbaloop.c
 
 clean:
-	rm *.o barbaloop
+	rm -f *.o barbaloop
