@@ -49,6 +49,9 @@ void update_status() {
     strncat(bar, status[i], STATUS_MAXLEN);
     strncat(bar, CONF_DELIMITER_AFTER, 2);
 
+    //printf("%s\n", bar);
+    //fflush(stdout);
+
     if (strncmp(oldbar, bar, BAR_MAXLEN)) {
         Display *dpy = XOpenDisplay(NULL);
 

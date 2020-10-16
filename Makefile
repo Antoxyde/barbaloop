@@ -7,3 +7,7 @@ all: barbaloop.c config.h
 
 clean:
 	rm -f *.o barbaloop
+
+install:
+	cp -f barbaloop ~/.local/bin/barbaloop
+
