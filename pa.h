@@ -113,31 +113,32 @@ static void context_state_callback(pa_context *ctx, void *userdata) {
 }
 
 
-static void pa_setup(void* buf) {
+static void *pa_setup(void* buf) {
     
     if ((mainloop = pa_mainloop_new()) == NULL) {
         fprintf(stderr, "pa_mainloop_new() failed.\n");
-        return;
+        return NULL;
     }
             
     mainloop_api = pa_mainloop_get_api(mainloop);
 
     if (pa_signal_init(mainloop_api) != 0) {
         fprintf(stderr, "pa_signal_init() failed\n");
-        return;
+        return NULL;
     }
 
     if ((context = pa_context_new(mainloop_api, "Barbaloop")) == NULL) {
         fprintf(stderr, "pa_context_new() failed\n");
-        return;
+        return NULL;
     }
 
     if (pa_context_connect(context, NULL, PA_CONTEXT_NOAUTOSPAWN, NULL) < 0) {
         fprintf(stderr, "pa_context_connect() failed: %s\n", pa_strerror(pa_context_errno(context)));
-        return;
+        return NULL;
     }
 
      pa_context_set_state_callback(context, context_state_callback, buf);
 
      pa_run();
+     return NULL;
 }
