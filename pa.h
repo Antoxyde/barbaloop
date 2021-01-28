@@ -3,7 +3,6 @@
 static pa_mainloop* mainloop = NULL;
 static pa_mainloop_api* mainloop_api = NULL;
 static pa_context* context = NULL;
-static pa_signal_event* pasignal = NULL;
 
 // from https://gist.github.com/jasonwhite/1df6ee4b5039358701d2
 
@@ -28,24 +27,12 @@ static void pa_quit(int ret) {
         context = NULL;
     }
 
-    if (pasignal) {
-        pa_signal_free(pasignal);
-        pa_signal_done();
-        pasignal = NULL;
-    }
-
     if (mainloop) {
         pa_mainloop_free(mainloop);
         mainloop = NULL;
         mainloop_api = NULL;
     }
 }
-
-static void exit_signal_callback(pa_mainloop_api *m, pa_signal_event *e, int sig, void *userdata) {
-    pa_quit(0);
-}
-
-
 
 static void sink_info_callback(pa_context *ctx, const pa_sink_info *i, int eol, void *userdata) {
     
@@ -62,20 +49,9 @@ static void server_info_callback(pa_context *ctx, const pa_server_info *i, void 
 
 static void subscribe_callback(pa_context *ctx, pa_subscription_event_type_t type, uint32_t idx, void *userdata) {
     unsigned facility = type & PA_SUBSCRIPTION_EVENT_FACILITY_MASK;
-    pa_operation *op = NULL;
 
-    switch (facility) {
-        case PA_SUBSCRIPTION_EVENT_SINK:
-            pa_context_get_sink_info_by_index(ctx, idx, sink_info_callback, userdata);
-            break;
-
-        default:
-            assert(0); // Got event we aren't expecting.
-            break;
-    }
-
-    if (op)
-        pa_operation_unref(op);
+    if (facility == PA_SUBSCRIPTION_EVENT_SINK) 
+        pa_context_get_sink_info_by_index(ctx, idx, sink_info_callback, userdata);
 }
 
 // Called on context status change
