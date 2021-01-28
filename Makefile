@@ -1,9 +1,17 @@
 CC=gcc
-CFLAGS=-Wall -Werror `pkg-config --cflags x11`
-LDFLAGS=`pkg-config --libs x11`
+CFLAGS=-Wall  -g
+LDFLAGS=-lX11 $(shell pkg-config libpulse --cflags --libs) -lpthread
 
-all: barbaloop.c config.h
-	$(CC) $(CFLAGS) $(LDFLAGS) -o barbaloop barbaloop.c
+
+all: barbaloop
+
+%.o: %.c %.h
+	$(CC) -c $(CFLAGS) $<
+
+barbaloop.o: barbaloop.c  config.h pa.h
+
+barbaloop: barbaloop.o
+	$(CC) $^ $(LDFLAGS) -o $@
 
 clean:
 	rm -f *.o barbaloop
