@@ -29,12 +29,13 @@ typedef struct actualizer {
 
 #include "config.h"
 #include "pa.h"
+#include "mpd.h"
 #include <pthread.h> // pulseaudio
 
 
 #define LENGTH(X) (sizeof(X)/sizeof(X[0]))
 
-static char status[LENGTH(actualizers) + 1][MAX_STATUS_SIZE];
+static char status[LENGTH(actualizers) + 2][MAX_STATUS_SIZE];
 static int continue_looping = 1;
 
 void actualize_time(char *buf) {
@@ -85,11 +86,11 @@ void actualize_battery(char* buf) {
 
     int percentage = 100 * remaining_capacity / last_capacity;
     int seconds;
-
-    if (!strcmp(state, "Charging\n")) {
+    
+    if (!strncmp(state, "Charging\n",9 )) {
         strncpy(color, CONF_COLOR_BATT_CHARGING, 11);
         seconds = 3600 * (last_capacity - remaining_capacity) / present_rate;
-    } else if (!strcmp(state, "Discharging\n")) {
+    } else if (!strncmp(state, "Discharging\n", 12)) {
 
         seconds = 3600 *  remaining_capacity / present_rate;
 
@@ -100,6 +101,7 @@ void actualize_battery(char* buf) {
             strncpy(color, CONF_COLOR_BATT_DISCHARGING, 11);
         }
     } else {
+        seconds = 3600 *  remaining_capacity / present_rate;
         strncpy(color, CONF_COLOR_BATT_UNKNOWN, 11);
     }
      
@@ -189,7 +191,7 @@ void update_statusbar() {
     char statusbar[LENGTH(actualizers) * MAX_STATUS_SIZE] = {};
 
     int i;
-    for (i = 0; i < LENGTH(actualizers) + 1; i++) {
+    for (i = 0; i < LENGTH(actualizers) + 2; i++) {
         strncat(statusbar, status[i], MAX_STATUS_SIZE);
         strncat(statusbar, " ", 2);
     }
@@ -212,7 +214,7 @@ void actualize_all(int elapsed) {
     int hasChanged = 0;
     for (int i = 0; i < LENGTH(actualizers); i++) {
         if (elapsed == 0 || (actualizers[i].time && elapsed % actualizers[i].time == 0)) {
-            actualizers[i].func(status[i+1]);
+            actualizers[i].func(status[i+2]);
             hasChanged = 1;
         }
     }
@@ -239,7 +241,7 @@ void sighandler(int signo) {
     int hasChanged = 0;
     for (int i = 0; i < LENGTH(actualizers); i++) {
         if (actualizers[i].signal == signo) {
-            actualizers[i].func(status[i+1]);
+            actualizers[i].func(status[i+2]);
             hasChanged = 1;
         }
     }
@@ -263,9 +265,13 @@ void register_signals() {
 int main(void) {
 
     register_signals();
+
+    pthread_t tid_mpd;
+    pthread_create(&tid_mpd, NULL, mpd_setup, status[0]);
+    printf("buf @ %p\n", status[0]);
     
-    pthread_t tid;
-    pthread_create(&tid, NULL, pa_setup, status[0]);
+    pthread_t tid_pa;
+    pthread_create(&tid_pa, NULL, pa_setup, status[1]);
 
     int elapsed = 0;
     while (continue_looping) {

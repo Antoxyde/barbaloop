@@ -38,7 +38,11 @@ static void sink_info_callback(pa_context *ctx, const pa_sink_info *i, int eol, 
     
     if (i) {
         float volume = (float)pa_cvolume_avg(&(i->volume)) / (float)PA_VOLUME_NORM;
-        snprintf((char*)userdata, MAX_STATUS_SIZE, "%.0f%%%s", volume * 100.0f, i->mute ? " (muted)" : "");
+        if (i->mute) {
+            snprintf((char*)userdata, MAX_STATUS_SIZE, "%s%.0f%% (m)", CONF_COLOR_VOLUME_MUTED, volume * 100.0f);
+        } else {
+            snprintf((char*)userdata, MAX_STATUS_SIZE, "%s%.0f%%", CONF_COLOR_VOLUME, volume * 100.0f);
+        }
         update_statusbar();
     }
 }

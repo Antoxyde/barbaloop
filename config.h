@@ -3,6 +3,7 @@
 #define BLUE "#83a598"
 #define WHITE "#ebdbb2"
 #define YELLOW "#fabd2f"
+#define GREEN "#b8bb26"
 
 #define MAX_STATUS_SIZE 256
 
@@ -30,6 +31,14 @@
 #define CONF_WIFI_IFACE  "wlp1s0"
 #define CONF_WIFI_COLOR  "^c" BLUE "^"
 #define CONF_WIFI_COLOR_DOWN  "^c" ORANGE "^"
+
+#define CONF_COLOR_VOLUME "^c" GREEN "^"
+#define CONF_COLOR_VOLUME_MUTED "^c" ORANGE "^"
+
+#define CONF_COLOR_MPD "^c" YELLOW "^"
+#define CONF_COLOR_MPD_PAUSED "^c" ORANGE "^"
+#define CONF_COLOR_MPD_UNKOWN "^c" WHITE "^"
+
 
 static const actualizer_t actualizers[] = {
     /* func, signal, sleep time */
