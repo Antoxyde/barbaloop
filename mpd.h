@@ -7,7 +7,7 @@ static struct mpd_connection *conn;
 
 static char *host = "localhost";
 static unsigned int port = 6600;
-//static unsigned int reconnect_time = 10;
+static unsigned int reconnect_time = 10;
 static char *state_name[4] = {"unknown", "stopped", "now playing", "paused"};
 static char* state;
 
@@ -60,10 +60,16 @@ void mpd_run(void* buf) {
 }
 
 void *mpd_setup(void* arg) {
-    conn = mpd_connection_new(host, port, 0);
-    
-    mpd_run(arg);
-    printf("ded\n");
+    for (;;)
+    {
+        fprintf(stderr, "[mpd] trying to connect %s:%d\n", host, port);
+        conn = mpd_connection_new(host, port, 0);
+        mpd_run(arg);
+        fprintf(stderr, "[mpd] reconnecting\n");
+        sleep(reconnect_time);
+    }
+
+    printf("ded\n"); 
 
     return NULL;
 }

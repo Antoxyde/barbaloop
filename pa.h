@@ -93,7 +93,7 @@ static void context_state_callback(pa_context *ctx, void *userdata) {
 }
 
 
-static void *pa_setup(void* buf) {
+static void *_pa_setup(void* buf) {
     
     if ((mainloop = pa_mainloop_new()) == NULL) {
         fprintf(stderr, "pa_mainloop_new() failed.\n");
@@ -120,5 +120,15 @@ static void *pa_setup(void* buf) {
      pa_context_set_state_callback(context, context_state_callback, buf);
 
      pa_run();
+
      return NULL;
+}
+
+
+void* pa_setup(void* buf) {
+
+    for (;;) {
+       _pa_setup(buf);
+       sleep(10);
+    }
 }

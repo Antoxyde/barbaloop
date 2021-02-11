@@ -65,7 +65,7 @@ void actualize_battery(char* buf) {
     
     char lbuf[32];
     char state[32];
-    char color[11];
+    char color[32];
     int last_capacity = -1;
     int remaining_capacity = -1;
     int present_rate = -1;
@@ -88,21 +88,21 @@ void actualize_battery(char* buf) {
     int seconds;
     
     if (!strncmp(state, "Charging\n",9 )) {
-        strncpy(color, CONF_COLOR_BATT_CHARGING, 11);
+        strncpy(color, CONF_COLOR_BATT_CHARGING, sizeof(color));
         seconds = 3600 * (last_capacity - remaining_capacity) / present_rate;
     } else if (!strncmp(state, "Discharging\n", 12)) {
 
         seconds = 3600 *  remaining_capacity / present_rate;
 
         if (percentage < CONF_LIMIT_BATT_LOW) {
-            strncpy(color, CONF_COLOR_BATT_DISCHARGING_LOW, 11);
+            strncpy(color, CONF_COLOR_BATT_DISCHARGING_LOW, sizeof(color));
             system("notify-send -c urgent " CONF_LOW_BATTERY_MESSAGE);
         } else {
-            strncpy(color, CONF_COLOR_BATT_DISCHARGING, 11);
+            strncpy(color, CONF_COLOR_BATT_DISCHARGING, sizeof(color));
         }
     } else {
         seconds = 3600 *  remaining_capacity / present_rate;
-        strncpy(color, CONF_COLOR_BATT_UNKNOWN, 11);
+        strncpy(color, CONF_COLOR_BATT_UNKNOWN, sizeof(color));
     }
      
     int hours = seconds / 3600;
@@ -192,8 +192,9 @@ void update_statusbar() {
 
     int i;
     for (i = 0; i < LENGTH(actualizers) + 2; i++) {
+        strncat(statusbar, " ", 1);
         strncat(statusbar, status[i], MAX_STATUS_SIZE);
-        strncat(statusbar, " ", 2);
+        strncat(statusbar, " ", 1);
     }
    
     Display *dpy = XOpenDisplay(NULL);
@@ -265,11 +266,12 @@ void register_signals() {
 int main(void) {
 
     register_signals();
-
+    
+    strcpy(status[0], "n/a");
     pthread_t tid_mpd;
     pthread_create(&tid_mpd, NULL, mpd_setup, status[0]);
-    printf("buf @ %p\n", status[0]);
     
+    strcpy(status[1], "n/a");
     pthread_t tid_pa;
     pthread_create(&tid_pa, NULL, pa_setup, status[1]);
 
