@@ -181,6 +181,7 @@ void actualize_wifi(char* buf) {
 
     if (ioctl(fd, SIOCGIWESSID, &iwr)) {
 		fprintf(stderr, "ioctl SIOCGIWESSID : %s\n",strerror(errno));
+        snprintf(buf, MAX_STATUS_SIZE, "%serror", CONF_WIFI_COLOR_DOWN);
 	} else {
         snprintf(buf, MAX_STATUS_SIZE, "%s%s", CONF_WIFI_COLOR, ssid);
     }
