@@ -6,7 +6,6 @@ static pa_context* context = NULL;
 
 // from https://gist.github.com/jasonwhite/1df6ee4b5039358701d2
 
-
 static int pa_run(void) {
 
     int ret = 1;
@@ -101,11 +100,13 @@ static void *_pa_setup(void* buf) {
     }
             
     mainloop_api = pa_mainloop_get_api(mainloop);
-
+    
+    /*
     if (pa_signal_init(mainloop_api) != 0) {
         fprintf(stderr, "pa_signal_init() failed\n");
         return NULL;
     }
+    */
 
     if ((context = pa_context_new(mainloop_api, "Barbaloop")) == NULL) {
         fprintf(stderr, "pa_context_new() failed\n");

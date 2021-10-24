@@ -161,7 +161,7 @@ void actualize_wifi(char* buf) {
     char status[5];
     fscanf(fp, "%s", status);
     fclose(fp);
-
+    
     if (!strcmp(status, "down")) {
         snprintf(buf, MAX_STATUS_SIZE, "%sdown", CONF_WIFI_COLOR_DOWN);
         return;
@@ -174,9 +174,10 @@ void actualize_wifi(char* buf) {
     if (fd == -1) return;
 
     struct iwreq iwr;
+	memset(&iwr, 0, sizeof(struct iwreq));
     iwr.u.essid.pointer = ssid;
     iwr.u.essid.flags = 0;
-    iwr.u.essid.length = IW_ESSID_MAX_SIZE;
+    iwr.u.essid.length = IW_ESSID_MAX_SIZE+1;
     strcpy(iwr.ifr_name, CONF_WIFI_IFACE);
 
     if (ioctl(fd, SIOCGIWESSID, &iwr)) {
@@ -268,11 +269,11 @@ int main(void) {
 
     register_signals();
     
-    strcpy(status[0], "n/a");
+    strcpy(status[0], "MPD n/a");
     pthread_t tid_mpd;
     pthread_create(&tid_mpd, NULL, mpd_setup, status[0]);
     
-    strcpy(status[1], "n/a");
+    strcpy(status[1], "PA n/a");
     pthread_t tid_pa;
     pthread_create(&tid_pa, NULL, pa_setup, status[1]);
 

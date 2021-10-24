@@ -1,6 +1,6 @@
 CC=gcc
-CFLAGS=-Wall  -g
-LDFLAGS=-lX11 $(shell pkg-config libpulse --cflags --libs) -lpthread -lmpdclient
+CFLAGS=-Wall -g 
+LDFLAGS=-lX11 $(shell pkg-config libpulse --cflags --libs) -lpthread -lmpdclient 
 
 
 all: barbaloop
